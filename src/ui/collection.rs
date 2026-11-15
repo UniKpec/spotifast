@@ -407,7 +407,11 @@ pub fn actions_row(
             let shuffle = app.playing_context_shuffle();
             if theme::icon_button(
                 ui,
-                Icon::Shuffle,
+                if app.shuffle_mode().is_smart() {
+                    Icon::SmartShuffle
+                } else {
+                    Icon::Shuffle
+                },
                 26.0,
                 if shuffle {
                     palette.accent

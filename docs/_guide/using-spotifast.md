@@ -24,6 +24,36 @@ on **Middle-click autoscroll** under **Settings > Appearance**. It is off by
 default, because Linux desktops usually paste the primary selection on middle
 click. macOS retains its existing middle-click behavior.
 
+## Smart Shuffle
+
+In the player bar, press Shuffle to cycle through off, ordinary shuffle and
+Smart Shuffle when playing on this computer, through the built-in player or
+Spotifast's own Soloist. Other devices keep ordinary shuffle only. Soloist
+also needs the separate **Spotify access** session to read suggestions.
+
+Smart Shuffle takes Spotify's autoplay suggestions and inserts one after
+every three original songs. It is Spotifast's own play order, not Spotify's
+native Smart Shuffle algorithm, and never edits your saved playlist. A
+selected song is shown as loading while suggestions are fetched. If Spotify
+has no suggestions or cannot supply them, the original songs still play.
+Next, Previous, Pause and Seek invalidate pending suggestions so a late
+answer cannot undo your later action.
+
+The collection must be fully loaded before Smart Shuffle can replace its
+context. Otherwise playback keeps the complete Spotify context and falls back
+to ordinary shuffle. Soloist starts also fall back when the original list
+exceeds Spotifast's 500-song budget for Web API starts. Within that budget, fewer
+suggestions are inserted if necessary, keeping all original songs. The built-in
+player can keep a longer fully loaded order.
+
+Turning Smart Shuffle off removes future suggestions and restores the
+original collection or filtered view at the current song's position. A
+suggestion already playing finishes before the original songs continue.
+Manually queued songs stay queued. If paused, the replacement waits until
+you resume on the same device, so changing shuffle never starts audio.
+The source list stays selected across Soloist playback updates, so Smart
+Shuffle can be turned off and back on without losing it.
+
 ## Scrolling shelves
 
 The tiles at the top of Home show what you played most recently, as

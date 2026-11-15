@@ -833,6 +833,26 @@ changed since. The request is sent once, never retried, and has a 20-second
 deadline. A row that is no longer
 in the playlist removes nothing; the playlist reloads and shows the error.
 
+## Smart Shuffle suggestions
+
+Smart Shuffle asks the signed-in playback session for
+`/context-resolve/v1/autoplay`, using librespot's existing request method.
+If the source has no continuation, or the read fails, it tries one track from
+the source. Each attempt has a 20-second deadline. No new OAuth permissions,
+credentials, service or recommendation provider are added. Soloist playback
+still needs this separate session for suggestions. Results belong to the
+account, playback device and request generation that asked for them.
+
+The app weaves these suggestions locally; it does not activate Spotify's
+native Smart Shuffle. A Soloist start sets native shuffle off before sending
+the woven order, in one ordered operation, so Spotify cannot reshuffle it.
+Transport changes finish in the order they were requested, so a pending start
+cannot overtake a later pause, skip, seek or shuffle change. Playback-state
+reads and volume adjustments continue independently.
+Soloist may report an explicit URI list as `spotify:webapi`. This placeholder
+does not identify a collection and cannot contradict the source chosen in
+Spotifast. A real collection reported after the request still takes precedence.
+
 ## Optional Soloist player
 
 [Soloist setup](/soloist/) describes the optional Spotify-owned player.

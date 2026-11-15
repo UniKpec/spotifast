@@ -236,8 +236,10 @@ The Web API and librespot do not provide these features:
   support its protocol. Spotifast's pins are local and are stored in
   `settings.json`. See [issue #31](https://github.com/crmne/spotifast/issues/31).
 - **Editing playlist folders.** librespot can only read them.
-- **Smart Shuffle, Jam, Blend, and similar Spotify features.** Spotify
-  generates these for its own clients. Spotifast only has plain shuffle.
+- **Spotify's native Smart Shuffle, Jam, Blend, and similar Spotify features.** Spotify
+  generates these for its own clients. Spotifast's [Smart Shuffle](/using-spotifast/#smart-shuffle)
+  instead weaves autoplay suggestions into its own local play order through
+  the existing librespot session. It does not enable Spotify's native mode.
   A Blend that a Spotify app already made opens like any playlist, with
   who added each song, but Spotifast cannot start or manage one.
 - **Spotify DJ.** Its special playlist context does not expose playable tracks

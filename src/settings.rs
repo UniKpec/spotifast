@@ -1888,6 +1888,10 @@ pub struct SessionState {
     pub rootlist: Option<CachedRootlist>,
     /// Shuffle mode saved across contexts and restarts.
     pub shuffle_on: bool,
+    /// Smart shuffle saved across contexts and restarts. A separate field
+    /// rather than a wider `shuffle_on`, so a settings file written before
+    /// smart shuffle existed still loads: it simply has no smart shuffle.
+    pub smart_shuffle: bool,
     /// Local repeat mode ("off", "context" or "track") saved across
     /// restarts. Sessions saved before it existed read as off.
     pub repeat: String,

@@ -18,6 +18,13 @@ playing from somewhere Spotify reports.
 These are the rules the app follows. The queue tests in `src/app.rs`
 check every one of them.
 
+Spotifast's [Smart Shuffle](/using-spotifast/#smart-shuffle) inserts Spotify
+autoplay suggestions into a fully loaded context on this computer. They
+belong to **Next up**, never **Playing next**. Turning it off removes future
+suggestions, keeps manually queued occurrences, and retains the current song
+and position. A paused context is restored when resumed. Pending suggestion
+answers cannot override a later skip, pause, seek, device change or new play.
+
 Starting and resuming are separate actions. With Shuffle off, a playlist's
 **Play** button starts at its first available song in the selected order.
 Double-clicking a row starts there, including with Shuffle on. **Play** in

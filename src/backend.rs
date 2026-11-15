@@ -152,6 +152,26 @@ pub enum RecentsFor {
     Panel,
 }
 
+/// Reads and volume remain independent of slow transport writes. Playback
+/// mutations, including a two-step shuffle start, share one ordered lane.
+fn ordered_playback(request: &ApiRequest) -> bool {
+    matches!(
+        request,
+        ApiRequest::ShufflePlay { .. }
+            | ApiRequest::Transfer { .. }
+            | ApiRequest::Remote {
+                action: RemoteAction::Play
+                    | RemoteAction::Pause
+                    | RemoteAction::Next
+                    | RemoteAction::Previous
+                    | RemoteAction::Seek
+                    | RemoteAction::Shuffle
+                    | RemoteAction::Repeat,
+                ..
+            }
+    )
+}
+
 #[derive(Clone, Debug)]
 pub enum ApiRequest {
     Me,
@@ -376,11 +396,13 @@ pub enum ApiRequest {
         device_id: String,
         play: bool,
     },
-    /// Shuffle on, then start the context, one after the other: sent as two
+    /// Set shuffle, then start the context, one after the other: sent as two
     /// independent requests they race, and shuffle sometimes lost.
     ShufflePlay {
         device_id: Option<String>,
         play: PlayRequest,
+        /// False for an already woven Smart Shuffle order.
+        shuffle: bool,
     },
     AddToQueue {
         uri: String,
@@ -774,6 +796,7 @@ pub enum Command {
     Api(ApiRequest),
     ApiFinished {
         generation: u64,
+        playback: bool,
         home_account: Option<AccountId>,
         response: Box<ApiResponse>,
         expired: Vec<ApiSource>,
@@ -913,6 +936,22 @@ pub enum Command {
     Radio {
         seed: String,
         generation: u64,
+    },
+    /// Songs Spotify would continue a context with, for smart shuffle.
+    /// `seed_track` is a song from that context, used when the context has
+    /// no continuation of its own.
+    SmartShuffle {
+        generation: u64,
+        context_uri: String,
+        seed_track: Option<String>,
+    },
+    /// Internal: smart shuffle recommendations finished resolving for the
+    /// session they started in.
+    SmartShuffleResolved {
+        session_generation: u64,
+        generation: u64,
+        context_uri: String,
+        result: Result<Vec<String>, String>,
     },
     SetPrereleaseSaved {
         uri: String,
@@ -1122,6 +1161,12 @@ pub enum Event {
         seed: String,
         generation: u64,
         result: Result<Vec<crate::api::models::Track>, String>,
+    },
+    /// Smart shuffle's recommendations for a context, or why there are none.
+    SmartShuffle {
+        generation: u64,
+        context_uri: String,
+        result: Result<Vec<String>, String>,
     },
     Prerelease {
         uri: String,
@@ -1880,6 +1925,10 @@ struct Worker {
     /// Reopening or refreshing the picker reuses an in-flight browse.
     receiver_discovery: Option<tokio::task::JoinHandle<()>>,
     background_session: Arc<tokio::sync::Semaphore>,
+    /// Transport writes must finish in user-action order. In particular, a
+    /// delayed ShufflePlay must not resume after a later Soloist pause.
+    playback_busy: bool,
+    playback_commands: VecDeque<ApiRequest>,
     art: ArtLoader,
     events: std::sync::mpsc::Sender<Event>,
     commands: mpsc::UnboundedSender<Command>,
@@ -2004,6 +2053,8 @@ impl Worker {
             connect: Arc::default(),
             receiver_discovery: None,
             background_session: Arc::new(tokio::sync::Semaphore::new(4)),
+            playback_busy: false,
+            playback_commands: VecDeque::new(),
             http,
             friend_names: Arc::default(),
             art,
@@ -2484,10 +2535,11 @@ impl Worker {
                     if let ApiRequest::PlaybackState { seq } = &request {
                         self.connect.poll_sent(*seq, self.cluster_playing());
                     }
-                    self.dispatch(request);
+                    self.dispatch_api(request);
                 }
                 Command::ApiFinished {
                     generation,
+                    playback,
                     home_account,
                     response,
                     expired,
@@ -2496,6 +2548,9 @@ impl Worker {
                 } => {
                     if generation != *self.session.borrow() {
                         continue;
+                    }
+                    if playback {
+                        self.finish_playback_command();
                     }
                     // Home can finish after a browser reauthorization without
                     // an explicit sign-out. Bind successful cards to both the
@@ -2943,6 +2998,25 @@ impl Worker {
                         self.emit(Event::Radio {
                             seed,
                             generation,
+                            result,
+                        });
+                    }
+                }
+                Command::SmartShuffle {
+                    generation,
+                    context_uri,
+                    seed_track,
+                } => self.fetch_smart_shuffle(generation, context_uri, seed_track),
+                Command::SmartShuffleResolved {
+                    session_generation,
+                    generation,
+                    context_uri,
+                    result,
+                } => {
+                    if self.signed_in && session_generation == *self.session.borrow() {
+                        self.emit(Event::SmartShuffle {
+                            generation,
+                            context_uri,
                             result,
                         });
                     }
@@ -3516,6 +3590,8 @@ impl Worker {
         self.made_for_you = Arc::new(crate::made_for_you::MadeForYou::new(self.http.clone()));
         self.new_releases = Arc::new(crate::new_releases::NewReleases::new(self.http.clone()));
         self.session.send_modify(|generation| *generation += 1);
+        self.playback_busy = false;
+        self.playback_commands.clear();
         // Friends' names belong to the account that read them.
         self.friend_names = Arc::default();
         self.connect = Arc::default();
@@ -4580,6 +4656,69 @@ impl Worker {
         }
     }
 
+    /// Asks the playback engine what Spotify would follow this context with.
+    /// Without a local engine there is nothing to ask, so smart shuffle says
+    /// so rather than leaving the context waiting.
+    fn fetch_smart_shuffle(
+        &self,
+        generation: u64,
+        context_uri: String,
+        seed_track: Option<String>,
+    ) {
+        if !self.signed_in {
+            return;
+        }
+        let session_generation = *self.session.borrow();
+        let Some(engine) = self.engine.clone() else {
+            self.emit(Event::SmartShuffle {
+                generation,
+                context_uri,
+                result: Err("local playback is not running".to_owned()),
+            });
+            return;
+        };
+        let commands = self.commands.clone();
+        let mut cancelled = self.session.subscribe();
+        tokio::spawn(async move {
+            let fetch = async {
+                let mut result =
+                    match tokio::time::timeout(RADIO_TIMEOUT, engine.autoplay_tracks(&context_uri))
+                        .await
+                    {
+                        Ok(result) => result.map_err(|error| format!("{error:#}")),
+                        Err(_) => Err(format!(
+                            "autoplay context: no answer within {}s",
+                            RADIO_TIMEOUT.as_secs()
+                        )),
+                    };
+                if (result.as_ref().is_ok_and(Vec::is_empty) || result.is_err())
+                    && let Some(seed) = seed_track.as_deref().filter(|s| *s != context_uri)
+                {
+                    log::info!(
+                        "smart shuffle: no continuation for {context_uri}; seeding from {seed}"
+                    );
+                    if let Ok(Ok(tracks)) =
+                        tokio::time::timeout(RADIO_TIMEOUT, engine.autoplay_tracks(seed)).await
+                    {
+                        result = Ok(tracks);
+                    }
+                }
+                result
+            };
+            let result = tokio::select! {
+                biased;
+                _ = cancelled.changed() => return,
+                result = fetch => result,
+            };
+            let _ = commands.send(Command::SmartShuffleResolved {
+                session_generation,
+                generation,
+                context_uri,
+                result,
+            });
+        });
+    }
+
     fn remove_playlist_rows(&self, playlist_id: String, rows: Vec<session_reads::RemovedRow>) {
         let answer = |id: String, result: Result<Option<String>, String>| {
             Event::Api(Box::new(ApiResponse::PlaylistItemsChanged {
@@ -4976,8 +5115,28 @@ impl Worker {
         self.search_tasks.push(self.dispatch(request));
     }
 
+    fn dispatch_api(&mut self, request: ApiRequest) {
+        if ordered_playback(&request) {
+            if self.playback_busy {
+                self.playback_commands.push_back(request);
+                return;
+            }
+            self.playback_busy = true;
+        }
+        self.dispatch(request);
+    }
+
+    fn finish_playback_command(&mut self) {
+        if let Some(request) = self.playback_commands.pop_front() {
+            self.dispatch(request);
+        } else {
+            self.playback_busy = false;
+        }
+    }
+
     /// Cancel requests on sign-out and report completion under their original generation.
     fn dispatch(&self, request: ApiRequest) -> tokio::task::AbortHandle {
+        let playback = ordered_playback(&request);
         let soloist = self
             .soloist
             .as_ref()
@@ -5018,6 +5177,7 @@ impl Worker {
             // clear or repopulate a session created after sign-out.
             let _ = commands.send(Command::ApiFinished {
                 generation,
+                playback,
                 home_account,
                 response: Box::new(response),
                 expired,
@@ -6031,9 +6191,13 @@ async fn handle(
             };
             ApiResponse::Remote { action, result }
         }
-        ApiRequest::ShufflePlay { device_id, play } => {
+        ApiRequest::ShufflePlay {
+            device_id,
+            play,
+            shuffle,
+        } => {
             let device = device_id.as_deref();
-            let result = match routed!(set_shuffle(true, device)) {
+            let result = match routed!(set_shuffle(shuffle, device)) {
                 Ok(()) => routed!(play(device, Some(&play))),
                 Err(error) => Err(error),
             };
@@ -6167,9 +6331,13 @@ async fn over_connect(
                 result,
             }
         }
-        ApiRequest::ShufflePlay { device_id, play } => {
+        ApiRequest::ShufflePlay {
+            device_id,
+            play,
+            shuffle,
+        } => {
             let to = connect.command_target(device_id.as_deref(), playing.as_deref())?;
-            let shuffle = crate::sonos::command_body(RemoteAction::Shuffle, None, 0, true, "")?;
+            let shuffle = crate::sonos::command_body(RemoteAction::Shuffle, None, 0, *shuffle, "")?;
             let start = crate::sonos::command_body(RemoteAction::Play, Some(play), 0, false, "")?;
             let result = shuffle_then_play(shuffle, start, |body| {
                 let to = &to;
@@ -8277,6 +8445,7 @@ mod authorization_tests {
         let _ = events.try_iter().collect::<Vec<_>>();
         let finished = |worker: &Worker, expired: ApiSource| Command::ApiFinished {
             generation: *worker.session.borrow(),
+            playback: false,
             home_account: None,
             response: Box::new(ApiResponse::Me(Err(ApiError::SignInExpired {
                 api_source: expired,
@@ -8450,6 +8619,7 @@ mod authorization_tests {
         commands
             .send(Command::ApiFinished {
                 generation,
+                playback: false,
                 home_account: None,
                 response: Box::new(ApiResponse::Me(Err(ApiError::SignInExpired {
                     api_source: ApiSource::Shared,
@@ -8616,6 +8786,7 @@ mod authorization_tests {
         commands
             .send(Command::ApiFinished {
                 generation: *worker.session.borrow(),
+                playback: false,
                 home_account: Some(AccountId::new("alice")),
                 response: Box::new(ApiResponse::MadeForYou {
                     generation: 1,
@@ -8664,6 +8835,7 @@ mod authorization_tests {
             commands
                 .send(Command::ApiFinished {
                     generation: *worker.session.borrow(),
+                    playback: false,
                     home_account: Some(AccountId::new("alice")),
                     response: Box::new(ApiResponse::MadeForYou {
                         generation: 1,
@@ -8710,6 +8882,7 @@ mod authorization_tests {
         commands
             .send(Command::ApiFinished {
                 generation: *worker.session.borrow(),
+                playback: false,
                 home_account: Some(AccountId::new("alice")),
                 response: Box::new(ApiResponse::MadeForYou {
                     generation: 1,
@@ -10120,62 +10293,153 @@ mod tests {
 
     #[tokio::test]
     async fn connect_shuffle_play_waits_for_shuffle_before_starting_playback() {
-        let request = PlayRequest::context("spotify:playlist:abc");
-        let shuffle = crate::sonos::command_body(RemoteAction::Shuffle, None, 0, true, "").unwrap();
-        let play =
-            crate::sonos::command_body(RemoteAction::Play, Some(&request), 0, false, "").unwrap();
-        let sent = std::sync::Mutex::new(Vec::new());
-        let shuffled = tokio::sync::Notify::new();
-        let sending = shuffle_then_play(shuffle.clone(), play.clone(), |body| {
-            let is_shuffle = body["command"]["endpoint"] == "set_shuffling_context";
-            sent.lock().unwrap().push(body);
-            let shuffled = &shuffled;
-            async move {
-                if is_shuffle {
-                    shuffled.notified().await;
+        for enabled in [false, true] {
+            let request = PlayRequest::context("spotify:playlist:abc");
+            let shuffle =
+                crate::sonos::command_body(RemoteAction::Shuffle, None, 0, enabled, "").unwrap();
+            let play = crate::sonos::command_body(RemoteAction::Play, Some(&request), 0, false, "")
+                .unwrap();
+            let sent = std::sync::Mutex::new(Vec::new());
+            let shuffled = tokio::sync::Notify::new();
+            let sending = shuffle_then_play(shuffle.clone(), play.clone(), |body| {
+                let is_shuffle = body["command"]["endpoint"] == "set_shuffling_context";
+                sent.lock().unwrap().push(body);
+                let shuffled = &shuffled;
+                async move {
+                    if is_shuffle {
+                        shuffled.notified().await;
+                    }
+                    Ok(())
                 }
-                Ok(())
-            }
+            });
+            tokio::pin!(sending);
+            std::future::poll_fn(|cx| {
+                assert!(std::future::Future::poll(sending.as_mut(), cx).is_pending());
+                std::task::Poll::Ready(())
+            })
+            .await;
+            assert_eq!(
+                sent.lock().unwrap().as_slice(),
+                std::slice::from_ref(&shuffle)
+            );
+            assert_eq!(shuffle["command"]["value"], enabled);
+            shuffled.notify_one();
+            sending.await.unwrap();
+            assert_eq!(*sent.lock().unwrap(), [shuffle, play]);
+        }
+    }
+
+    #[test]
+    fn smart_shuffle_transport_waits_for_start_before_pause_skip_seek_and_off() {
+        let (runtime, mut worker, _) = authorization_tests::worker("smart-transport-order");
+        let _entered = runtime.enter();
+        let (commands, mut completions) = mpsc::unbounded_channel();
+        worker.commands = commands;
+        worker.dispatch_api(ApiRequest::ShufflePlay {
+            device_id: Some("soloist".into()),
+            play: PlayRequest::tracks(vec!["spotify:track:original".into()]),
+            shuffle: false,
         });
-        tokio::pin!(sending);
-        std::future::poll_fn(|cx| {
-            assert!(std::future::Future::poll(sending.as_mut(), cx).is_pending());
-            std::task::Poll::Ready(())
-        })
-        .await;
-        assert_eq!(
-            sent.lock().unwrap().as_slice(),
-            std::slice::from_ref(&shuffle)
-        );
-        assert_eq!(shuffle["command"]["value"], true);
-        shuffled.notify_one();
-        sending.await.unwrap();
-        assert_eq!(*sent.lock().unwrap(), [shuffle, play]);
+        let actions = [
+            RemoteAction::Pause,
+            RemoteAction::Next,
+            RemoteAction::Seek,
+            RemoteAction::Shuffle,
+        ];
+        for action in actions {
+            worker.dispatch_api(ApiRequest::Remote {
+                action,
+                device_id: Some("soloist".into()),
+                play: None,
+                position_ms: 25_000,
+                percent: 0,
+                flag: false,
+                repeat: String::new(),
+            });
+        }
+        // Reads must still complete while the first playback write waits.
+        worker.dispatch_api(ApiRequest::PlaybackState { seq: 13 });
+        runtime.block_on(async {
+            let mut read = false;
+            let mut start = false;
+            for _ in 0..2 {
+                let completed = tokio::time::timeout(Duration::from_secs(2), completions.recv())
+                    .await
+                    .unwrap()
+                    .unwrap();
+                match completed {
+                    Command::ApiFinished { playback: true, response, .. } => {
+                        assert!(matches!(*response, ApiResponse::Remote { action: RemoteAction::Play, .. }));
+                        start = true;
+                    }
+                    Command::ApiFinished { playback: false, response, .. } => {
+                        assert!(matches!(*response, ApiResponse::PlaybackState { seq: 13, .. }));
+                        read = true;
+                    }
+                    _ => panic!("unexpected command"),
+                }
+            }
+            assert!(read && start);
+            assert!(completions.try_recv().is_err(), "later controls ran before the start settled");
+            for expected in actions {
+                // Even a refused start must release the next user action.
+                worker.finish_playback_command();
+                let completed = tokio::time::timeout(Duration::from_secs(2), completions.recv())
+                    .await
+                    .unwrap()
+                    .unwrap();
+                assert!(matches!(completed, Command::ApiFinished { playback: true, response, .. }
+                    if matches!(*response, ApiResponse::Remote { action, .. } if action == expected)));
+                assert!(completions.try_recv().is_err(), "two transport writes ran together");
+            }
+            worker.finish_playback_command();
+            assert!(!worker.playback_busy);
+        });
+    }
+
+    #[test]
+    fn smart_shuffle_sign_out_discards_queued_transport_commands() {
+        let (runtime, mut worker, _) = authorization_tests::worker("smart-transport-signout");
+        let _entered = runtime.enter();
+        worker.playback_busy = true;
+        worker.playback_commands.push_back(ApiRequest::ShufflePlay {
+            device_id: Some("old-device".into()),
+            play: PlayRequest::tracks(vec!["spotify:track:old-account".into()]),
+            shuffle: false,
+        });
+        worker.sign_out();
+        assert!(!worker.playback_busy);
+        assert!(worker.playback_commands.is_empty());
     }
 
     #[tokio::test]
     async fn connect_shuffle_play_preserves_errors_and_skips_play_when_shuffle_fails() {
-        let request = PlayRequest::context("spotify:playlist:abc");
-        let shuffle = crate::sonos::command_body(RemoteAction::Shuffle, None, 0, true, "").unwrap();
-        let play =
-            crate::sonos::command_body(RemoteAction::Play, Some(&request), 0, false, "").unwrap();
-        for failed_endpoint in ["set_shuffling_context", "play"] {
-            let mut sent = Vec::new();
-            let result = shuffle_then_play(shuffle.clone(), play.clone(), |body| {
-                let failed = body["command"]["endpoint"] == failed_endpoint;
-                sent.push(body);
-                std::future::ready(if failed {
-                    Err(ApiError::Network(failed_endpoint.into()))
-                } else {
-                    Ok(())
+        for enabled in [false, true] {
+            let request = PlayRequest::context("spotify:playlist:abc");
+            let shuffle =
+                crate::sonos::command_body(RemoteAction::Shuffle, None, 0, enabled, "").unwrap();
+            let play = crate::sonos::command_body(RemoteAction::Play, Some(&request), 0, false, "")
+                .unwrap();
+            for failed_endpoint in ["set_shuffling_context", "play"] {
+                let mut sent = Vec::new();
+                let result = shuffle_then_play(shuffle.clone(), play.clone(), |body| {
+                    let failed = body["command"]["endpoint"] == failed_endpoint;
+                    sent.push(body);
+                    std::future::ready(if failed {
+                        Err(ApiError::Network(failed_endpoint.into()))
+                    } else {
+                        Ok(())
+                    })
                 })
-            })
-            .await;
-            assert!(matches!(result, Err(ApiError::Network(error)) if error == failed_endpoint));
-            if failed_endpoint == "set_shuffling_context" {
-                assert_eq!(sent.as_slice(), std::slice::from_ref(&shuffle));
-            } else {
-                assert_eq!(sent, [shuffle.clone(), play.clone()]);
+                .await;
+                assert!(
+                    matches!(result, Err(ApiError::Network(error)) if error == failed_endpoint)
+                );
+                if failed_endpoint == "set_shuffling_context" {
+                    assert_eq!(sent.as_slice(), std::slice::from_ref(&shuffle));
+                } else {
+                    assert_eq!(sent, [shuffle.clone(), play.clone()]);
+                }
             }
         }
     }
