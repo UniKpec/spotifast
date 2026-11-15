@@ -858,6 +858,13 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         )
         .when(!cfg!(target_os = "macos")),
         RowText::new(start_with_computer.clone(), start_detail).when(start_available),
+        RowText::new(
+            gettext(locale, "Crossfade"),
+            gettext(
+                locale,
+                "Smoothly fade volume out at the end of a track and in on the next.",
+            ),
+        ),
     ];
     for index in [0, 1, 2, 3, 4, 5, 8, 9, 10, 11, 14] {
         playback_rows[index].available &= built_in;
@@ -983,6 +990,20 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                 if widgets::switch(ui, &palette, &gapless, &mut app.settings.gapless).changed() {
                     changed = true;
                     playback_dirty = true;
+                }
+            });
+            filtered_row(ui, &palette, &needle, &playback, &playback_rows[18], |ui| {
+                if setting_slider(
+                    ui,
+                    &palette,
+                    &mut app.settings.crossfade_secs,
+                    0..=12,
+                    |slider| slider,
+                    |value| value.suffix(" s"),
+                )
+                .changed()
+                {
+                    changed = true;
                 }
             });
             filtered_row(ui, &palette, &needle, &playback, &playback_rows[6], |ui| {

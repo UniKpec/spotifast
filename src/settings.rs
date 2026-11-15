@@ -270,6 +270,8 @@ pub struct Settings {
     pub normalisation: bool,
     pub autoplay: bool,
     pub gapless: bool,
+    #[serde(default)]
+    pub crossfade_secs: u8,
     /// The output local playback uses: the id of a device
     /// `fastframe_audio::output_devices` lists, or `None` for the system
     /// default. Files from 0.13.3 and earlier may hold a device's name instead; see
@@ -495,6 +497,7 @@ impl Default for Settings {
             normalisation: false,
             autoplay: true,
             gapless: true,
+            crossfade_secs: 0,
             audio_device: None,
             local_files_folder: None,
             audio_buffer_ms: default_buffer_ms(),
@@ -688,6 +691,7 @@ impl Settings {
                 settings.migrate_proxy(text);
                 settings.forget_unusable_screen_rate();
                 settings.proxy_password_legacy = !settings.proxy_password.is_empty();
+                settings.crossfade_secs = settings.crossfade_secs.min(12);
                 settings
             }
             Err(_) => Self::default(),

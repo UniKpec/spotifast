@@ -701,6 +701,11 @@ pub struct App {
     pub toasts: Vec<Toast>,
     pub actions: Vec<Action>,
     volume_before_mute: Option<u8>,
+    crossfade_base_volume: Option<u8>,
+    crossfade_track_uri: Option<String>,
+    crossfade_fade_in: bool,
+    crossfade_last_sent: Option<Instant>,
+    crossfade_last_percent: Option<u8>,
     /// Context and track URIs whose pending play buttons show a spinner.
     pending_play_keys: Vec<String>,
     pending_play_at: Option<Instant>,
@@ -1048,6 +1053,8 @@ const LYRICS_RETRIES: [Duration; 4] = [
 ];
 /// How often a volume drag updates our own Soloist.
 const SOLOIST_VOLUME_PACE: Duration = Duration::from_millis(100);
+/// Minimum interval between automatic crossfade volume updates.
+const CROSSFADE_STEP_PACE: Duration = Duration::from_millis(80);
 
 /// The tray menu's Play or Pause entry, for what is playing.
 fn play_pause_label(playing: bool) -> &'static str {
@@ -1419,6 +1426,11 @@ impl App {
             toasts: Vec::new(),
             actions: Vec::new(),
             volume_before_mute: None,
+            crossfade_base_volume: None,
+            crossfade_track_uri: None,
+            crossfade_fade_in: false,
+            crossfade_last_sent: None,
+            crossfade_last_percent: None,
             pending_play_keys: Vec::new(),
             pending_play_at: None,
             queued_play: None,
@@ -2432,7 +2444,9 @@ impl App {
                 loading: self.local.loading,
                 shuffle: self.shuffle_wanted,
                 repeat: self.local.repeat,
-                volume_percent: volume_to_percent(self.local.volume),
+                volume_percent: self
+                    .crossfade_base_volume
+                    .unwrap_or_else(|| volume_to_percent(self.local.volume)),
                 can_control: true,
                 can_set_volume: true,
                 is_episode: track.is_episode,
@@ -2472,7 +2486,9 @@ impl App {
         };
         let own_soloist = self.soloist_device_id.is_some()
             && self.soloist_device_id.as_deref() == device.and_then(|d| d.id.as_deref());
-        let volume = if self.has_soloist_output_volume() && own_soloist {
+        let volume = if own_soloist && let Some(base) = self.crossfade_base_volume {
+            base
+        } else if self.has_soloist_output_volume() && own_soloist {
             self.backend.soloist_output_volume.percent()
         } else if let Some(percent) = self.soloist_route_volume().filter(|_| own_soloist) {
             percent
@@ -4488,6 +4504,7 @@ impl App {
     fn tick(&mut self, ctx: &egui::Context) {
         self.poll_custom_themes(ctx);
         self.retry_soloist_when_due(ctx);
+        self.tick_crossfade(ctx);
         if self.queued_play.is_some() && self.soloist_waiting() && !self.soloist_recovering() {
             self.soloist_give_up();
         }
@@ -11207,6 +11224,9 @@ impl App {
     }
 
     fn set_volume(&mut self, percent: u8, settle: bool) {
+        self.crossfade_base_volume = None;
+        self.crossfade_last_percent = None;
+        self.crossfade_last_sent = None;
         let percent = percent.min(100);
         if self.has_soloist_output_volume() && self.targets_own_soloist() {
             self.backend.soloist_output_volume.set(percent);
@@ -11280,6 +11300,155 @@ impl App {
             && self
                 .soloist_volume_preview
                 .is_none_or(|sent| sent.elapsed() >= SOLOIST_VOLUME_PACE)
+    }
+
+    fn apply_crossfade_volume(&mut self, percent: u8, settle: bool) {
+        let percent = percent.min(100);
+        if self.has_soloist_output_volume() && self.targets_own_soloist() {
+            self.backend.soloist_output_volume.set(percent);
+            self.pending_remote_volume = None;
+            return;
+        }
+        if self.soloist_route_volume().is_some()
+            && self.targets_own_soloist()
+            && self.can_set_volume()
+        {
+            self.backend.soloist_output_volume.lead(percent);
+        }
+        match self.target() {
+            Target::Local => {
+                let volume = percent_to_volume(percent);
+                self.local.volume = volume;
+                self.pending_local_volume = Some((volume, Instant::now()));
+                self.backend.player(if settle {
+                    PlayerCommand::Volume(volume)
+                } else {
+                    PlayerCommand::VolumePreview(volume)
+                });
+            }
+            Target::Remote(device_id) if self.targets_own_soloist() && self.can_set_volume() => {
+                self.soloist_volume_preview = Some(Instant::now());
+                self.remote_volume_request += 1;
+                if settle {
+                    self.pending_remote_volume = Some(PendingRemoteVolume {
+                        percent,
+                        device_id: device_id.clone(),
+                        request: self.remote_volume_request,
+                        after_poll: None,
+                        written_at: None,
+                        mismatches: 0,
+                    });
+                }
+                self.backend.api(ApiRequest::Remote {
+                    action: RemoteAction::Volume {
+                        request: self.remote_volume_request,
+                    },
+                    device_id,
+                    play: None,
+                    position_ms: 0,
+                    percent,
+                    flag: false,
+                    repeat: String::new(),
+                });
+            }
+            Target::Remote(_) => {}
+        }
+    }
+
+    fn restore_crossfade_volume(&mut self) {
+        self.crossfade_fade_in = false;
+        self.crossfade_last_percent = None;
+        self.crossfade_last_sent = None;
+        if let Some(base) = self.crossfade_base_volume.take() {
+            self.apply_crossfade_volume(base, true);
+        }
+    }
+
+    /// Smoothly ramps volume down near track end and back up on the next track
+    /// while playing through the built-in player or own Soloist.
+    fn tick_crossfade(&mut self, ctx: &egui::Context) {
+        let crossfade_secs = self.settings.crossfade_secs.min(12);
+        let eligible = matches!(self.target(), Target::Local) || self.targets_own_soloist();
+        if crossfade_secs == 0 || !eligible || self.volume_is_muted() {
+            self.restore_crossfade_volume();
+            self.crossfade_track_uri = None;
+            return;
+        }
+        let Some(now) = self.now_playing() else {
+            self.restore_crossfade_volume();
+            self.crossfade_track_uri = None;
+            return;
+        };
+        let uri = now.uri;
+        let playing = now.playing;
+        let loading = now.loading;
+        let duration_ms = now.duration_ms;
+        let position_ms = now.position_ms;
+        let now_volume = now.volume_percent;
+
+        if loading {
+            ctx.request_repaint_after(CROSSFADE_STEP_PACE);
+            return;
+        }
+        if !playing || duration_ms < 2_000 {
+            self.restore_crossfade_volume();
+            self.crossfade_track_uri = Some(uri);
+            return;
+        }
+        let fade_ms = u32::from(crossfade_secs)
+            .saturating_mul(1_000)
+            .min(duration_ms / 2);
+        if self.crossfade_track_uri.as_deref() != Some(uri.as_str()) {
+            let had_previous = self.crossfade_track_uri.is_some();
+            self.crossfade_track_uri = Some(uri);
+            self.crossfade_fade_in = had_previous && position_ms < fade_ms;
+        }
+
+        let remaining_ms = duration_ms.saturating_sub(position_ms);
+        let fade_out = if fade_ms > 0 && remaining_ms < fade_ms {
+            remaining_ms as f32 / fade_ms as f32
+        } else {
+            1.0
+        };
+        let fade_in = if self.crossfade_fade_in && fade_ms > 0 {
+            if position_ms >= fade_ms {
+                self.crossfade_fade_in = false;
+                1.0
+            } else {
+                position_ms as f32 / fade_ms as f32
+            }
+        } else {
+            1.0
+        };
+        let gain = fade_in.min(fade_out).clamp(0.0, 1.0);
+        if gain >= 0.999 {
+            if self.crossfade_base_volume.is_some() {
+                self.restore_crossfade_volume();
+            }
+            let until_fade_ms = remaining_ms.saturating_sub(fade_ms);
+            if until_fade_ms <= 2_500 {
+                ctx.request_repaint_after(
+                    Duration::from_millis(u64::from(until_fade_ms)).max(Duration::from_millis(50)),
+                );
+            }
+            return;
+        }
+
+        let base = *self.crossfade_base_volume.get_or_insert(now_volume);
+        if base == 0 {
+            self.restore_crossfade_volume();
+            return;
+        }
+        let target_percent = ((f32::from(base) * gain).round() as u8).min(base);
+        let due = self
+            .crossfade_last_sent
+            .is_none_or(|at| at.elapsed() >= CROSSFADE_STEP_PACE);
+        if due && self.crossfade_last_percent != Some(target_percent) {
+            self.crossfade_last_sent = Some(Instant::now());
+            self.crossfade_last_percent = Some(target_percent);
+            self.apply_crossfade_volume(target_percent, false);
+        }
+        ctx.request_repaint_after(CROSSFADE_STEP_PACE);
     }
 
     fn reconcile_remote_volume(&mut self, seq: u64, state: Option<&PlaybackState>) {
@@ -36649,5 +36818,69 @@ mod tests {
         let server_err =
             widgets::sanitize_error_message("500 Internal Server Error", Locale::English);
         assert_eq!(server_err.as_ref(), "500 Internal Server Error");
+    }
+
+    #[test]
+    fn crossfade_fades_volume_and_restores_base_volume() {
+        let ctx = egui::Context::default();
+        let mut app = headless_app();
+        let base_volume = percent_to_volume(80);
+        app.local_ready = true;
+        app.local.connected = true;
+        app.local.playback = Playback::Playing;
+        app.local.volume = base_volume;
+        app.local.position_at = None;
+        app.settings.volume = base_volume;
+        app.settings.crossfade_secs = 5;
+        app.local.track = Some(crate::player::LocalTrack {
+            uri: "spotify:track:a".into(),
+            title: "Track A".into(),
+            duration_ms: 200_000,
+            ..Default::default()
+        });
+        app.local.position_ms = 197_500;
+
+        app.tick_crossfade(&ctx);
+        assert_eq!(volume_to_percent(app.local.volume), 40);
+        assert_eq!(app.now_playing().unwrap().volume_percent, 80);
+        assert_eq!(app.settings.volume, base_volume);
+
+        // Next track starts: fade in from current position without changing UI volume.
+        app.local.track = Some(crate::player::LocalTrack {
+            uri: "spotify:track:b".into(),
+            title: "Track B".into(),
+            duration_ms: 180_000,
+            ..Default::default()
+        });
+        app.local.position_ms = 2_500;
+        app.crossfade_last_sent = None;
+        app.tick_crossfade(&ctx);
+        assert_eq!(volume_to_percent(app.local.volume), 40);
+        assert_eq!(app.now_playing().unwrap().volume_percent, 80);
+
+        // Past fade-in window: restore base volume cleanly.
+        app.local.position_ms = 6_000;
+        app.tick_crossfade(&ctx);
+        assert_eq!(app.local.volume, base_volume);
+        assert!(app.crossfade_base_volume.is_none());
+
+        // Enter fade-out then pause -> restores base volume.
+        app.local.position_ms = 178_000;
+        app.crossfade_last_sent = None;
+        app.tick_crossfade(&ctx);
+        assert_eq!(volume_to_percent(app.local.volume), 32);
+        app.local.playback = Playback::Paused;
+        app.tick_crossfade(&ctx);
+        assert_eq!(app.local.volume, base_volume);
+
+        // Enter fade-out then disable crossfade -> restores base volume.
+        app.local.playback = Playback::Playing;
+        app.crossfade_last_sent = None;
+        app.tick_crossfade(&ctx);
+        assert_eq!(volume_to_percent(app.local.volume), 32);
+        app.settings.crossfade_secs = 0;
+        app.tick_crossfade(&ctx);
+        assert_eq!(app.local.volume, base_volume);
+        app.backend.shutdown();
     }
 }
