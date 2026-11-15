@@ -4233,6 +4233,24 @@ msgstr ""
 "graficzny albo włącz akcelerację GPU maszyny wirtualnej. Otworzyć {url}, aby "
 "dowiedzieć się więcej?"
 
+msgid "Smart shuffle"
+msgstr "Inteligentne losowanie"
+
+msgid "Suggested by smart shuffle"
+msgstr "Zaproponowano przez inteligentne losowanie"
+
+msgid "Smart shuffle: Spotify had nothing to add"
+msgstr "Inteligentne losowanie: Spotify nie znalazło nic do dodania"
+
+msgid "Smart shuffle: couldn't reach Spotify's suggestions"
+msgstr "Inteligentne losowanie: nie można pobrać propozycji Spotify"
+
+msgid "Crossfade"
+msgstr "Płynne przejście (Crossfade)"
+
+msgid "Smoothly fade volume out at the end of a track and in on the next."
+msgstr "Płynnie ścisza utwór na końcu i podgłaśnia kolejny na początku."
+
 #~ msgid "3. Pair once in Spotify"
 #~ msgstr "3. Sparuj raz w Spotify"
 

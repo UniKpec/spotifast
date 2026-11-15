@@ -4206,6 +4206,25 @@ msgstr ""
 "este PC ou máquina virtual não oferece um. Instale o driver gráfico ou ative "
 "a aceleração por GPU da máquina virtual. Abrir {url} para saber mais?"
 
+msgid "Smart shuffle"
+msgstr "Ordem aleatória inteligente"
+
+msgid "Suggested by smart shuffle"
+msgstr "Sugerido pela ordem aleatória inteligente"
+
+msgid "Smart shuffle: Spotify had nothing to add"
+msgstr "Ordem aleatória inteligente: o Spotify não tinha nada a adicionar"
+
+msgid "Smart shuffle: couldn't reach Spotify's suggestions"
+msgstr ""
+"Ordem aleatória inteligente: não foi possível obter as sugestões do Spotify"
+
+msgid "Crossfade"
+msgstr "Crossfade"
+
+msgid "Smoothly fade volume out at the end of a track and in on the next."
+msgstr "Diminui suavemente o volume no fim de uma faixa e aumenta na próxima."
+
 #~ msgid "3. Pair once in Spotify"
 #~ msgstr "3. Faça o pareamento uma vez no Spotify"
 

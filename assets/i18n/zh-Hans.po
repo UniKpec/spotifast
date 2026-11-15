@@ -4056,6 +4056,24 @@ msgstr ""
 "有提供。请安装显卡驱动程序，或为虚拟机开启 GPU 加速。要打开 {url} 了解更多"
 "吗？"
 
+msgid "Smart shuffle"
+msgstr "智能随机播放"
+
+msgid "Suggested by smart shuffle"
+msgstr "由智能随机播放推荐"
+
+msgid "Smart shuffle: Spotify had nothing to add"
+msgstr "智能随机播放：Spotify 没有可添加的推荐歌曲"
+
+msgid "Smart shuffle: couldn't reach Spotify's suggestions"
+msgstr "智能随机播放：无法获取 Spotify 的推荐"
+
+msgid "Crossfade"
+msgstr "淡入淡出 (Crossfade)"
+
+msgid "Smoothly fade volume out at the end of a track and in on the next."
+msgstr "在曲目结束时平滑降低音量，并在下一首曲目开始时渐强。"
+
 #~ msgid "3. Pair once in Spotify"
 #~ msgstr "3. 在 Spotify 中配对一次"
 

@@ -4211,6 +4211,26 @@ msgstr ""
 "stuurprogramma of zet GPU-versnelling aan voor de virtuele machine. {url} "
 "openen voor meer informatie?"
 
+msgid "Smart shuffle"
+msgstr "Smart Shuffle"
+
+msgid "Suggested by smart shuffle"
+msgstr "Aanbevolen door Smart Shuffle"
+
+msgid "Smart shuffle: Spotify had nothing to add"
+msgstr "Smart Shuffle: Spotify had niets om toe te voegen"
+
+msgid "Smart shuffle: couldn't reach Spotify's suggestions"
+msgstr "Smart Shuffle: kon suggesties van Spotify niet bereiken"
+
+msgid "Crossfade"
+msgstr "Crossfade"
+
+msgid "Smoothly fade volume out at the end of a track and in on the next."
+msgstr ""
+"Fadet het volume vloeiend uit aan het einde van een nummer en in bij het "
+"volgende."
+
 #~ msgid "3. Pair once in Spotify"
 #~ msgstr "3. Eenmalig koppelen in Spotify"
 

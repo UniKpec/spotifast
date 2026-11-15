@@ -4207,6 +4207,24 @@ msgstr ""
 "sürücüsünü yükleyin veya sanal makine için GPU hızlandırmayı açın. Daha "
 "fazlasını okumak için {url} açılsın mı?"
 
+msgid "Smart shuffle"
+msgstr "Akıllı karıştır"
+
+msgid "Suggested by smart shuffle"
+msgstr "Akıllı karıştır önerisi"
+
+msgid "Smart shuffle: Spotify had nothing to add"
+msgstr "Akıllı karıştır: Spotify eklenecek öneri bulamadı"
+
+msgid "Smart shuffle: couldn't reach Spotify's suggestions"
+msgstr "Akıllı karıştır: Spotify önerilerine ulaşılamadı"
+
+msgid "Crossfade"
+msgstr "Çapraz geçiş (Crossfade)"
+
+msgid "Smoothly fade volume out at the end of a track and in on the next."
+msgstr "Parça sonunda sesi yumuşakça kısar ve sonraki parçada kademeli açar."
+
 #~ msgid "3. Pair once in Spotify"
 #~ msgstr "3. Spotify'da bir kez eşleştirin"
 

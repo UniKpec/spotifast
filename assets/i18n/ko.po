@@ -4139,6 +4139,24 @@ msgstr ""
 "나 가상 머신의 GPU 가속을 켜세요. 자세한 내용을 보려면 {url}을(를) 여시겠습니"
 "까?"
 
+msgid "Smart shuffle"
+msgstr "스마트 셔플"
+
+msgid "Suggested by smart shuffle"
+msgstr "스마트 셔플 추천"
+
+msgid "Smart shuffle: Spotify had nothing to add"
+msgstr "스마트 셔플: Spotify에서 추가할 곡을 찾지 못했습니다"
+
+msgid "Smart shuffle: couldn't reach Spotify's suggestions"
+msgstr "스마트 셔플: Spotify 추천 목록에 연결할 수 없습니다"
+
+msgid "Crossfade"
+msgstr "크로스페이드"
+
+msgid "Smoothly fade volume out at the end of a track and in on the next."
+msgstr "트랙 끝에서 볼륨을 부드럽게 줄이고 다음 트랙에서 서서히 높입니다."
+
 #~ msgid "3. Pair once in Spotify"
 #~ msgstr "3. Spotify에서 한 번 페어링"
 

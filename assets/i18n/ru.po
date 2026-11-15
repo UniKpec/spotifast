@@ -4232,6 +4232,25 @@ msgstr ""
 "драйвер или включите GPU-ускорение для виртуальной машины. Открыть {url}, "
 "чтобы узнать больше?"
 
+msgid "Smart shuffle"
+msgstr "Умное перемешивание"
+
+msgid "Suggested by smart shuffle"
+msgstr "Предложено умным перемешиванием"
+
+msgid "Smart shuffle: Spotify had nothing to add"
+msgstr "Умное перемешивание: Spotify нечего добавить"
+
+msgid "Smart shuffle: couldn't reach Spotify's suggestions"
+msgstr "Умное перемешивание: не удалось получить рекомендации Spotify"
+
+msgid "Crossfade"
+msgstr "Кроссфейд"
+
+msgid "Smoothly fade volume out at the end of a track and in on the next."
+msgstr ""
+"Плавно снижает громкость в конце трека и повышает в начале следующего."
+
 #~ msgid "3. Pair once in Spotify"
 #~ msgstr "3. Выполните сопряжение в Spotify один раз"
 

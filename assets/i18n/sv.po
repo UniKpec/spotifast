@@ -4179,6 +4179,24 @@ msgstr ""
 "eller slå på GPU-acceleration för den virtuella maskinen. Öppna {url} för "
 "att läsa mer?"
 
+msgid "Smart shuffle"
+msgstr "Smart shuffle"
+
+msgid "Suggested by smart shuffle"
+msgstr "Föreslagen av smart shuffle"
+
+msgid "Smart shuffle: Spotify had nothing to add"
+msgstr "Smart shuffle: Spotify hade inget att lägga till"
+
+msgid "Smart shuffle: couldn't reach Spotify's suggestions"
+msgstr "Smart shuffle: kunde inte nå Spotifys förslag"
+
+msgid "Crossfade"
+msgstr "Crossfade"
+
+msgid "Smoothly fade volume out at the end of a track and in on the next."
+msgstr "Tonar mjukt ut volymen i slutet av ett spår och in på nästa."
+
 #~ msgid "3. Pair once in Spotify"
 #~ msgstr "3. Parkoppla en gång i Spotify"
 

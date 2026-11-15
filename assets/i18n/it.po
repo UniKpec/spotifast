@@ -4220,6 +4220,25 @@ msgstr ""
 "oppure attiva l’accelerazione GPU della macchina virtuale. Aprire {url} per "
 "saperne di più?"
 
+msgid "Smart shuffle"
+msgstr "Riproduzione casuale smart"
+
+msgid "Suggested by smart shuffle"
+msgstr "Suggerito dalla riproduzione casuale smart"
+
+msgid "Smart shuffle: Spotify had nothing to add"
+msgstr "Riproduzione casuale smart: Spotify non aveva nulla da aggiungere"
+
+msgid "Smart shuffle: couldn't reach Spotify's suggestions"
+msgstr ""
+"Riproduzione casuale smart: impossibile raggiungere i suggerimenti di Spotify"
+
+msgid "Crossfade"
+msgstr "Dissolvenza incrociata (Crossfade)"
+
+msgid "Smoothly fade volume out at the end of a track and in on the next."
+msgstr "Sfuma dolcemente il volume alla fine di un brano e lo alza nel successivo."
+
 #~ msgid "3. Pair once in Spotify"
 #~ msgstr "3. Abbina una volta in Spotify"
 

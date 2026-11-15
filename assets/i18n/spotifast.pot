@@ -4020,3 +4020,27 @@ msgid ""
 "virtual machine does not provide one. Install the graphics driver, or turn "
 "on GPU acceleration for the virtual machine. Open {url} to read more?"
 msgstr ""
+
+#: src/app.rs:10986
+msgid "Smart shuffle: Spotify had nothing to add"
+msgstr ""
+
+#: src/app.rs:10994
+msgid "Smart shuffle: couldn't reach Spotify's suggestions"
+msgstr ""
+
+#: src/ui/player_bar.rs:761
+msgid "Smart shuffle"
+msgstr ""
+
+#: src/ui/settings.rs:862
+msgid "Crossfade"
+msgstr ""
+
+#: src/ui/settings.rs:865
+msgid "Smoothly fade volume out at the end of a track and in on the next."
+msgstr ""
+
+#: src/ui/widgets.rs:2535
+msgid "Suggested by smart shuffle"
+msgstr ""

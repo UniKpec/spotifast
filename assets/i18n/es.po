@@ -4220,6 +4220,25 @@ msgstr ""
 "PC o máquina virtual no lo ofrece. Instala el controlador gráfico o activa "
 "la aceleración por GPU de la máquina virtual. ¿Abrir {url} para saber más?"
 
+msgid "Smart shuffle"
+msgstr "Aleatorio inteligente"
+
+msgid "Suggested by smart shuffle"
+msgstr "Sugerido por Aleatorio inteligente"
+
+msgid "Smart shuffle: Spotify had nothing to add"
+msgstr "Aleatorio inteligente: Spotify no tenía nada que añadir"
+
+msgid "Smart shuffle: couldn't reach Spotify's suggestions"
+msgstr "Aleatorio inteligente: no se pudo acceder a las sugerencias de Spotify"
+
+msgid "Crossfade"
+msgstr "Crossfade"
+
+msgid "Smoothly fade volume out at the end of a track and in on the next."
+msgstr ""
+"Atenúa suavemente el volumen al final de una pista y lo sube en la siguiente."
+
 #~ msgid "3. Pair once in Spotify"
 #~ msgstr "3. Empareja una vez en Spotify"
 

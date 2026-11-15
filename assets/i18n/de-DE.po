@@ -4238,6 +4238,25 @@ msgstr ""
 "Grafiktreiber oder schalte die GPU-Beschleunigung der virtuellen Maschine "
 "ein. {url} öffnen, um mehr zu erfahren?"
 
+msgid "Smart shuffle"
+msgstr "Smart Shuffle"
+
+msgid "Suggested by smart shuffle"
+msgstr "Vorgeschlagen von Smart Shuffle"
+
+msgid "Smart shuffle: Spotify had nothing to add"
+msgstr "Smart Shuffle: Spotify hatte nichts hinzuzufügen"
+
+msgid "Smart shuffle: couldn't reach Spotify's suggestions"
+msgstr "Smart Shuffle: Spotify-Vorschläge konnten nicht abgerufen werden"
+
+msgid "Crossfade"
+msgstr "Überblenden (Crossfade)"
+
+msgid "Smoothly fade volume out at the end of a track and in on the next."
+msgstr ""
+"Blendet die Lautstärke am Ende eines Titels sanft aus und beim nächsten ein."
+
 #~ msgid "3. Pair once in Spotify"
 #~ msgstr "3. Einmal in Spotify koppeln"
 

@@ -4249,6 +4249,27 @@ msgstr ""
 "graphique ou activez l’accélération GPU de la machine virtuelle. Ouvrir "
 "{url} pour en savoir plus ?"
 
+msgid "Smart shuffle"
+msgstr "Lecture aléatoire intelligente"
+
+msgid "Suggested by smart shuffle"
+msgstr "Suggéré par la lecture aléatoire intelligente"
+
+msgid "Smart shuffle: Spotify had nothing to add"
+msgstr "Lecture aléatoire intelligente : Spotify n’a rien trouvé à ajouter"
+
+msgid "Smart shuffle: couldn't reach Spotify's suggestions"
+msgstr ""
+"Lecture aléatoire intelligente : impossible d’obtenir les suggestions de "
+"Spotify"
+
+msgid "Crossfade"
+msgstr "Fondu enchaîné (Crossfade)"
+
+msgid "Smoothly fade volume out at the end of a track and in on the next."
+msgstr ""
+"Diminue doucement le volume à la fin d’un titre et l’augmente au suivant."
+
 #~ msgid "3. Pair once in Spotify"
 #~ msgstr "3. Appairer une fois dans Spotify"
 

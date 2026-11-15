@@ -573,12 +573,15 @@ fn preferred_backdrop_art(small: Option<String>, large: Option<String>) -> Optio
 
 /// How bright the brightest of the picture may stay behind the words, so a
 /// white preset reads like the dimmed art does.
+#[cfg(any(feature = "milkdrop", test))]
 const BACKDROP_GLOW: f32 = 0.2;
 /// The dimming's limits: even a dark preset's sparks stay this far under the
 /// white of the words, and a bright one is never lost altogether.
+#[cfg(any(feature = "milkdrop", test))]
 const BACKDROP_DIM: std::ops::RangeInclusive<f32> = 0.2..=0.32;
 
 /// How much of the picture's brightness to keep, for one this bright.
+#[cfg(any(feature = "milkdrop", test))]
 fn backdrop_dim(glow: f32) -> f32 {
     (BACKDROP_GLOW / glow.max(0.01)).clamp(*BACKDROP_DIM.start(), *BACKDROP_DIM.end())
 }

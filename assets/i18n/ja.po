@@ -4181,6 +4181,24 @@ msgstr ""
 "するか、仮想マシンの GPU アクセラレーションを有効にしてください。詳しくは "
 "{url} を開きますか？"
 
+msgid "Smart shuffle"
+msgstr "スマートシャッフル"
+
+msgid "Suggested by smart shuffle"
+msgstr "スマートシャッフルによるおすすめ"
+
+msgid "Smart shuffle: Spotify had nothing to add"
+msgstr "スマートシャッフル：Spotify に追加できる曲がありませんでした"
+
+msgid "Smart shuffle: couldn't reach Spotify's suggestions"
+msgstr "スマートシャッフル：Spotify のおすすめを取得できませんでした"
+
+msgid "Crossfade"
+msgstr "クロスフェード"
+
+msgid "Smoothly fade volume out at the end of a track and in on the next."
+msgstr "曲の終わりで音量を滑らかに下げ、次の曲で徐々に上げます。"
+
 #~ msgid "3. Pair once in Spotify"
 #~ msgstr "3. Spotifyで初回ペアリング"
 
