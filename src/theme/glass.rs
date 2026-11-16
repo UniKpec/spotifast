@@ -16,9 +16,9 @@ use egui::{Color32, Mesh, Rect, Stroke, pos2, vec2};
 use super::Palette;
 
 /// The sidebar's, the right-hand panels' and the player bar's sheet.
-pub const CHROME: Color32 = Color32::from_rgba_premultiplied(9, 9, 9, 9);
+pub const CHROME: Color32 = Color32::from_rgba_premultiplied(14, 14, 14, 14);
 /// The hairline where a sheet meets the page.
-pub const EDGE: Color32 = Color32::from_rgba_premultiplied(16, 16, 16, 16);
+pub const EDGE: Color32 = Color32::from_rgba_premultiplied(26, 26, 26, 26);
 
 /// Raycast's coral: the brightest pool when no cover colours it.
 const CORAL: Color32 = Color32::from_rgb(0xff, 0x63, 0x63);
@@ -51,19 +51,19 @@ fn pools(lead: Color32) -> [Pool; 3] {
             center: [0.70, -0.10],
             radii: [0.80, 0.70],
             color: lead,
-            strength: 0.30,
+            strength: 0.44,
         },
         Pool {
             center: [0.02, 0.62],
             radii: [0.55, 0.65],
             color: VIOLET,
-            strength: 0.26,
+            strength: 0.36,
         },
         Pool {
             center: [0.98, 1.08],
             radii: [0.50, 0.45],
             color: BLUE,
-            strength: 0.17,
+            strength: 0.24,
         },
     ]
 }
@@ -195,7 +195,7 @@ pub fn edge(ui: &egui::Ui, palette: &Palette, rect: Rect, side: Side) {
 /// sheet, fading out, rather than a solid band that would hide the
 /// backdrop.
 pub fn header_wash(art: Color32, overview: bool) -> (Color32, Color32) {
-    let strength = if overview { 0.16 } else { 0.32 };
+    let strength = if overview { 0.20 } else { 0.38 };
     (art.gamma_multiply(strength), Color32::TRANSPARENT)
 }
 
@@ -204,7 +204,7 @@ pub fn tinted_chrome(tint: Option<Color32>) -> Color32 {
     match tint {
         // Premultiplied colours add as one sheet laid over the other.
         Some(tint) => {
-            let light = tint.gamma_multiply(0.14);
+            let light = tint.gamma_multiply(0.18);
             Color32::from_rgba_premultiplied(
                 CHROME.r().saturating_add(light.r()),
                 CHROME.g().saturating_add(light.g()),
