@@ -1659,6 +1659,10 @@ pub fn apply_flags(app: &mut App, page: Option<&str>, show: Option<&str>) {
                 app.settings.theme = crate::settings::ThemeChoice::Dark;
                 app.actions.push(Action::SettingsChanged);
             }
+            "glass" => {
+                app.settings.theme = crate::settings::ThemeChoice::Glass;
+                app.actions.push(Action::SettingsChanged);
+            }
             // Settings filtered down to the skin cards.
             "settings-skins" => {
                 app.winamp.demo_settings_filter = Some("Mini player".into());

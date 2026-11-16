@@ -5664,7 +5664,7 @@ impl App {
             };
         }
         match self.settings.theme {
-            ThemeChoice::Dark => egui::ThemePreference::Dark,
+            ThemeChoice::Dark | ThemeChoice::Glass => egui::ThemePreference::Dark,
             ThemeChoice::Light => egui::ThemePreference::Light,
             ThemeChoice::System => egui::ThemePreference::System,
         }
@@ -5690,7 +5690,9 @@ impl App {
         }
         let dark = ctx.theme() == egui::Theme::Dark;
         let palette = self.custom_palette(dark).unwrap_or_else(|| {
-            if dark {
+            if self.settings.theme == ThemeChoice::Glass {
+                Palette::glass()
+            } else if dark {
                 Palette::dark()
             } else {
                 Palette::light()
@@ -25991,9 +25993,14 @@ mod tests {
             assert!(app.settings.custom_theme.is_none());
             assert!(app.settings.custom_theme_cache.is_none());
             if choice != ThemeChoice::System {
-                assert_eq!(app.palette.dark, choice == ThemeChoice::Dark);
+                assert_eq!(app.palette.dark, choice != ThemeChoice::Light);
+                assert_eq!(app.palette.glass, choice == ThemeChoice::Glass);
             }
         }
+        // Glass is dark to egui, and a palette file chosen after it is solid.
+        app.apply(Action::SetTheme(ThemeChoice::Glass), &ctx);
+        assert_eq!(app.palette, Palette::glass());
+        assert_eq!(ctx.theme(), egui::Theme::Dark);
     }
 
     #[test]

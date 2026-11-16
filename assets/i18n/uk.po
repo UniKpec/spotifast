@@ -2726,6 +2726,11 @@ msgctxt "theme"
 msgid "Light"
 msgstr "Світла"
 
+#: src/settings.rs:178
+msgctxt "theme"
+msgid "Glass"
+msgstr "Скло"
+
 #: src/settings.rs:174
 msgid "Follow system"
 msgstr "Як у системі"

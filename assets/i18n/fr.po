@@ -2738,6 +2738,11 @@ msgctxt "theme"
 msgid "Light"
 msgstr "Clair"
 
+#: src/settings.rs:178
+msgctxt "theme"
+msgid "Glass"
+msgstr "Verre"
+
 #: src/settings.rs:174
 msgid "Follow system"
 msgstr "Suivre le système"

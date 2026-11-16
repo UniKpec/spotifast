@@ -2662,6 +2662,11 @@ msgctxt "theme"
 msgid "Light"
 msgstr "라이트"
 
+#: src/settings.rs:178
+msgctxt "theme"
+msgid "Glass"
+msgstr "유리"
+
 #: src/settings.rs:174
 msgid "Follow system"
 msgstr "시스템 설정 따르기"

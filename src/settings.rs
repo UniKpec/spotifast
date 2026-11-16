@@ -45,6 +45,8 @@ pub enum ThemeChoice {
     Light,
     #[default]
     System,
+    /// Spotifast's frosted dark theme ([`crate::theme::Palette::glass`]).
+    Glass,
 }
 
 /// How the tray icon is drawn on Linux and Windows: in colour, or white or
@@ -164,7 +166,7 @@ impl<'de> Deserialize<'de> for LanguageChoice {
 }
 
 impl ThemeChoice {
-    pub const ALL: [ThemeChoice; 3] = [Self::System, Self::Light, Self::Dark];
+    pub const ALL: [ThemeChoice; 4] = [Self::System, Self::Light, Self::Dark, Self::Glass];
 
     pub fn label(self, locale: crate::i18n::Locale) -> std::borrow::Cow<'static, str> {
         use crate::i18n::{gettext, pgettext};
@@ -172,6 +174,7 @@ impl ThemeChoice {
             Self::Dark => pgettext(locale, "theme", "Dark"),
             Self::Light => pgettext(locale, "theme", "Light"),
             Self::System => gettext(locale, "Follow system"),
+            Self::Glass => pgettext(locale, "theme", "Glass"),
         }
     }
 }
@@ -1026,7 +1029,11 @@ mod tests {
         assert_eq!(ThemeChoice::default(), ThemeChoice::System);
         let empty: Settings = serde_json::from_str("{}").unwrap();
         assert_eq!(empty.theme, ThemeChoice::System);
-        for (json, choice) in [("dark", ThemeChoice::Dark), ("light", ThemeChoice::Light)] {
+        for (json, choice) in [
+            ("dark", ThemeChoice::Dark),
+            ("light", ThemeChoice::Light),
+            ("glass", ThemeChoice::Glass),
+        ] {
             let settings: Settings =
                 serde_json::from_value(serde_json::json!({"theme": json, "volume": 37})).unwrap();
             assert_eq!(settings.theme, choice);

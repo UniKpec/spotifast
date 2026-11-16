@@ -45,7 +45,14 @@ pub(crate) fn end_tint_session(ctx: &egui::Context) {
 
 pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let palette = app.palette;
-    let fill = eased_fill(ui.ctx(), palette.panel, app.now_playing_tint());
+    let fill = if palette.glass {
+        ease(
+            ui.ctx(),
+            crate::theme::glass::tinted_chrome(app.now_playing_tint()),
+        )
+    } else {
+        eased_fill(ui.ctx(), palette.panel, app.now_playing_tint())
+    };
     egui::Panel::bottom("player-bar")
         .exact_size(theme::PLAYER_BAR_HEIGHT)
         .resizable(false)
@@ -394,6 +401,12 @@ fn waveform(
 /// the colour returns to the panel colour.
 fn eased_fill(ctx: &egui::Context, panel: Color32, tint: Option<Color32>) -> Color32 {
     let target = tint.map_or(panel, |tint| super::blend(panel, tint, TINT_STRENGTH));
+    ease(ctx, target)
+}
+
+/// The bar's fill eased toward `target` over the tint's fade, its alpha
+/// taken as it is.
+fn ease(ctx: &egui::Context, target: Color32) -> Color32 {
     // Color32 stores premultiplied RGB, so interpolate unmultiplied channels.
     let [r, g, b, _] = target.to_srgba_unmultiplied();
     // A new pass after sign-out gets new ids without clearing other animations.

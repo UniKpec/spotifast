@@ -2607,6 +2607,11 @@ msgctxt "theme"
 msgid "Light"
 msgstr "淺色"
 
+#: src/settings.rs:178
+msgctxt "theme"
+msgid "Glass"
+msgstr "玻璃"
+
 #: src/settings.rs:174
 msgid "Follow system"
 msgstr "跟隨系統"

@@ -2698,6 +2698,11 @@ msgctxt "theme"
 msgid "Light"
 msgstr "ライト"
 
+#: src/settings.rs:178
+msgctxt "theme"
+msgid "Glass"
+msgstr "ガラス"
+
 #: src/settings.rs:174
 msgid "Follow system"
 msgstr "システムに合わせる"

@@ -565,12 +565,16 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         .default_size(app.settings.sidebar_width)
         .size_range(fit.range.clone())
         .show_separator_line(false)
-        .frame(Frame::new().fill(palette.panel).inner_margin(Margin {
-            left: 12,
-            right: 8,
-            top,
-            bottom: if expanded_art { 0 } else { 8 },
-        }));
+        .frame(
+            Frame::new()
+                .fill(palette.chrome_fill())
+                .inner_margin(Margin {
+                    left: 12,
+                    right: 8,
+                    top,
+                    bottom: if expanded_art { 0 } else { 8 },
+                }),
+        );
     let response = panel.show(ui, |ui| {
         let art_rect = expanded_art.then(|| expanded_art_rect(ui));
         if let Some(rect) = art_rect.filter(|_| !floating_art) {
@@ -584,6 +588,12 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
             paint_expanded_art(app, ui, rect);
         }
     });
+    crate::theme::glass::edge(
+        ui,
+        &palette,
+        response.response.rect,
+        crate::theme::glass::Side::Right,
+    );
     let width = response.response.rect.width();
     if (width - app.settings.sidebar_width).abs() > 1.0
         && super::panel_width_chosen(ui.ctx(), "sidebar", &fit)

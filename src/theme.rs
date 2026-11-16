@@ -8,6 +8,8 @@ use crate::i18n::{Locale, gettext};
 use egui::{Color32, CornerRadius, Response, Sense, Stroke, Vec2};
 use std::borrow::Cow;
 
+pub mod glass;
+
 /// A palette file from the themes directory.
 pub type CustomTheme = fastframe_theme::CustomTheme<Palette>;
 /// The palette files, and the Omarchy palette where the desktop has one.
@@ -36,6 +38,12 @@ pub struct Palette {
     /// it; its alpha is the strength. Transparent leaves the plain window.
     #[serde(default)]
     pub tint: Color32,
+    /// Glass: the window shows a soft backdrop of coloured light, and the
+    /// page, side panels and player bar are frosted sheets over it rather
+    /// than solid fills. Only the built-in Glass theme sets it; palette
+    /// files and older caches read as solid.
+    #[serde(default)]
+    pub glass: bool,
 }
 
 impl Palette {
@@ -59,6 +67,62 @@ impl Palette {
             overlay: Color32::from_rgb(0x22, 0x27, 0x2e),
             shadow: Color32::from_black_alpha(140),
             tint: Color32::TRANSPARENT,
+            glass: false,
+        }
+    }
+
+    /// A dark, frosted theme in the manner of Raycast: near-black glass
+    /// over soft coral and violet light, hairline edges, and a coral
+    /// accent.
+    ///
+    /// `window` and `panel` stay solid, because they double as the ink on
+    /// light fills (the play button's glyph, an active chip's label) and as
+    /// the colour masks fade into. The surfaces and the outline are white
+    /// at low opacity, so rows, fields and buttons read as lit glass over
+    /// whatever lies behind them. Menus and dialogs stay nearly solid:
+    /// egui cannot blur what is under a popup, and text over text is
+    /// unreadable.
+    pub fn glass() -> Self {
+        Self {
+            dark: true,
+            window: Color32::from_rgb(0x0b, 0x0b, 0x0e),
+            panel: Color32::from_rgb(0x11, 0x11, 0x15),
+            surface: Color32::from_white_alpha(14),
+            surface_hover: Color32::from_white_alpha(24),
+            surface_active: Color32::from_white_alpha(34),
+            outline: Color32::from_white_alpha(22),
+            text: Color32::from_rgb(0xed, 0xed, 0xef),
+            secondary: Color32::from_rgb(0xa1, 0xa1, 0xaa),
+            dim: Color32::from_rgb(0x6c, 0x6c, 0x76),
+            accent: Color32::from_rgb(0xff, 0x63, 0x63),
+            accent_hover: Color32::from_rgb(0xff, 0x7d, 0x7d),
+            on_accent: Color32::from_rgb(0x1a, 0x07, 0x07),
+            danger: Color32::from_rgb(0xff, 0x5c, 0x8a),
+            warning: Color32::from_rgb(0xf5, 0xc3, 0x5b),
+            overlay: Color32::from_rgba_unmultiplied(0x1a, 0x1a, 0x1f, 246),
+            shadow: Color32::from_black_alpha(170),
+            tint: Color32::TRANSPARENT,
+            glass: true,
+        }
+    }
+
+    /// What the page behind the content is filled with: the window, or
+    /// nothing over glass, where the backdrop is the page.
+    pub fn page_fill(&self) -> Color32 {
+        if self.glass {
+            Color32::TRANSPARENT
+        } else {
+            self.window
+        }
+    }
+
+    /// What the sidebar, the right-hand panels and the player bar are
+    /// filled with: the panel colour, or a frosted sheet over glass.
+    pub fn chrome_fill(&self) -> Color32 {
+        if self.glass {
+            glass::CHROME
+        } else {
+            self.panel
         }
     }
 
@@ -82,6 +146,7 @@ impl Palette {
             overlay: Color32::from_rgb(0xff, 0xff, 0xff),
             shadow: Color32::from_black_alpha(50),
             tint: Color32::TRANSPARENT,
+            glass: false,
         }
     }
 
@@ -421,6 +486,11 @@ fn apply_to_style(style: &mut egui::Style, palette: &Palette) {
         foreground_color: true,
         ..egui::style::ScrollStyle::floating()
     };
+    // egui fades a scrolled list's edge into the solid panel colour, which
+    // shows as a dark band on a glass sheet: glass lists end cleanly.
+    if palette.glass {
+        style.spacing.scroll.fade.strength = 0.0;
+    }
     style.interaction.selectable_labels = false;
     style.interaction.tooltip_delay = 0.4;
     style.animation_time = crate::motion::ANIMATION_TIME;
@@ -1061,6 +1131,46 @@ mod tests {
             assert_eq!(&got[..], expected, "pixel {x},{y}");
         }
         output.textures_delta.clear();
+    }
+
+    /// Glass keeps every colour that is drawn as ink solid, so labels on
+    /// light fills stay readable, and only its sheets see through.
+    #[test]
+    fn glass_sees_through_its_sheets_but_not_its_ink() {
+        let glass = Palette::glass();
+        assert!(glass.glass && glass.dark);
+        for ink in [
+            glass.window,
+            glass.panel,
+            glass.text,
+            glass.secondary,
+            glass.dim,
+            glass.accent,
+            glass.on_accent,
+        ] {
+            assert!(ink.is_opaque(), "{ink:?}");
+        }
+        for sheet in [glass.surface, glass.surface_hover, glass.outline] {
+            assert!(sheet.a() > 0 && sheet.a() < 64, "{sheet:?}");
+        }
+        assert!(glass.surface.a() < glass.surface_hover.a());
+        assert!(glass.surface_hover.a() < glass.surface_active.a());
+        // Menus stay nearly solid: nothing under them is blurred.
+        assert!(glass.overlay.a() >= 240);
+        assert_eq!(glass.page_fill(), Color32::TRANSPARENT);
+        assert_eq!(glass.chrome_fill(), glass::CHROME);
+        // Solid palettes keep their fills, and a palette file or an older
+        // cache never turns glass on.
+        assert_eq!(Palette::dark().page_fill(), Palette::dark().window);
+        assert_eq!(Palette::light().chrome_fill(), Palette::light().panel);
+        let file: Palette =
+            fastframe_theme::parse_palette(r##"{"base":"dark","colors":{}}"##).unwrap();
+        assert!(!file.glass);
+        let mut cached = serde_json::to_value(Palette::dark()).unwrap();
+        cached.as_object_mut().unwrap().remove("glass");
+        assert!(!serde_json::from_value::<Palette>(cached).unwrap().glass);
+        let round: Palette = serde_json::from_value(serde_json::to_value(glass).unwrap()).unwrap();
+        assert_eq!(round, glass);
     }
 
     /// Palette files name the sixteen colours every app shares and

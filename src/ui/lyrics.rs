@@ -52,7 +52,7 @@ pub fn side_panel(app: &mut App, ui: &mut egui::Ui) {
         .show_separator_line(false)
         .frame(
             Frame::new()
-                .fill(palette.panel)
+                .fill(palette.chrome_fill())
                 .inner_margin(Margin::symmetric(12, 12)),
         );
     let response = panel.show(ui, |ui| {
@@ -115,6 +115,12 @@ pub fn side_panel(app: &mut App, ui: &mut egui::Ui) {
         ui.add_space(8.0);
         contents(app, ui);
     });
+    crate::theme::glass::edge(
+        ui,
+        &palette,
+        response.response.rect,
+        crate::theme::glass::Side::Left,
+    );
     let current_width = response.response.rect.width();
     if (app.settings.lyrics_width - current_width).abs() > 1.0
         && super::panel_width_chosen(ui.ctx(), "lyrics-panel", &fit)

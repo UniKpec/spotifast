@@ -91,6 +91,8 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
             ),
         );
     }
+    // Under every panel, so the glass sheets have light to frost.
+    theme::glass::backdrop(ui, &app.palette, app.now_playing_tint());
     player_bar::show(app, ui);
     if app.lyrics_fullscreen.is_some() {
         lyrics::fullscreen(app, ui);
@@ -305,7 +307,7 @@ fn central(app: &mut App, ui: &mut egui::Ui) {
     let palette = app.palette;
     let tint = page_tint(app);
     egui::CentralPanel::default()
-        .frame(Frame::new().fill(palette.window))
+        .frame(Frame::new().fill(palette.page_fill()))
         .show(ui, |ui| {
             let rect = ui.max_rect();
             let page = app.page().clone();
@@ -548,13 +550,17 @@ fn banner(
 /// The gradient behind a page's header, top to bottom: the art's colour
 /// blended into the window, stronger on a cover's own page than on an
 /// overview, or else the palette's `tint` fading out, whose alpha is its
-/// strength. `None` leaves the plain window.
+/// strength. `None` leaves the plain window. Over glass the art's colour
+/// is light laid on the sheet, so the backdrop still shows through it.
 fn header_wash(
     palette: &theme::Palette,
     overview: bool,
     art: Option<Color32>,
 ) -> Option<(Color32, Color32)> {
     if let Some(art) = art {
+        if palette.glass {
+            return Some(theme::glass::header_wash(art, overview));
+        }
         let strength = if overview { 0.45 } else { 0.85 };
         return Some((blend(palette.window, art, strength), palette.window));
     }
@@ -844,6 +850,14 @@ mod tests {
             page,
             "art wins over the wash"
         );
+
+        // Over glass the art is light on the sheet, never a solid band that
+        // would hide the backdrop.
+        let glass = theme::Palette::glass();
+        assert_eq!(header_wash(&glass, false, None), None);
+        let (top, bottom) = header_wash(&glass, false, Some(art)).unwrap();
+        assert!(!top.is_opaque() && top.a() > 0);
+        assert_eq!(bottom, Color32::TRANSPARENT);
     }
 
     /// The wash sits at the top of an unscrolled page and leaves with the
