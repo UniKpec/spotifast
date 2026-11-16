@@ -318,6 +318,9 @@ pub struct Settings {
     pub home: HomeSettings,
     /// Tint the interface with the colour of the playing album's art.
     pub accent_from_art: bool,
+    /// How strong the Glass theme's glass is, in percent of its design.
+    #[serde(default = "default_glass_strength")]
+    pub glass_strength: u8,
     /// A spectrum or waveform of the playing song behind the player bar.
     pub player_bar_vis: PlayerBarVis,
     /// Allow clicks on the player bar background to cycle visualizer modes.
@@ -514,6 +517,7 @@ impl Default for Settings {
             theme_pair: crate::theme::ThemePair::default(),
             home: HomeSettings::default(),
             accent_from_art: true,
+            glass_strength: default_glass_strength(),
             player_bar_vis: PlayerBarVis::Off,
             player_bar_vis_click: true,
             visualizer_fps: crate::milkdrop::DEFAULT_FPS,
@@ -586,6 +590,10 @@ impl Default for Settings {
             proxy_password_legacy: false,
         }
     }
+}
+
+fn default_glass_strength() -> u8 {
+    crate::theme::glass::DEFAULT_PERCENT
 }
 
 fn default_buffer_ms() -> u32 {
@@ -695,6 +703,10 @@ impl Settings {
                 settings.forget_unusable_screen_rate();
                 settings.proxy_password_legacy = !settings.proxy_password.is_empty();
                 settings.crossfade_secs = settings.crossfade_secs.min(12);
+                settings.glass_strength = settings.glass_strength.clamp(
+                    crate::theme::glass::MIN_PERCENT,
+                    crate::theme::glass::MAX_PERCENT,
+                );
                 settings
             }
             Err(_) => Self::default(),

@@ -44,6 +44,14 @@ pub struct Palette {
     /// files and older caches read as solid.
     #[serde(default)]
     pub glass: bool,
+    /// How strong the glass is, 1.0 as designed: the backdrop's light
+    /// follows it, and the sheets follow it by half. Settings' Glass
+    /// strength sets it; solid palettes ignore it.
+    #[serde(
+        default = "Palette::designed_glass",
+        skip_serializing_if = "Palette::is_designed_glass"
+    )]
+    pub glass_strength: f32,
 }
 
 impl Palette {
@@ -68,6 +76,7 @@ impl Palette {
             shadow: Color32::from_black_alpha(140),
             tint: Color32::TRANSPARENT,
             glass: false,
+            glass_strength: 1.0,
         }
     }
 
@@ -83,14 +92,24 @@ impl Palette {
     /// egui cannot blur what is under a popup, and text over text is
     /// unreadable.
     pub fn glass() -> Self {
+        Self::glass_at(1.0)
+    }
+
+    /// The Glass theme at `strength`, 1.0 being [`Palette::glass`]: the
+    /// surfaces and outline are its sheets, scaled by half as much.
+    pub fn glass_at(strength: f32) -> Self {
+        let strength = strength.clamp(
+            glass::strength(glass::MIN_PERCENT),
+            glass::strength(glass::MAX_PERCENT),
+        );
         Self {
             dark: true,
             window: Color32::from_rgb(0x0b, 0x0b, 0x0e),
             panel: Color32::from_rgb(0x11, 0x11, 0x15),
-            surface: Color32::from_white_alpha(20),
-            surface_hover: Color32::from_white_alpha(32),
-            surface_active: Color32::from_white_alpha(44),
-            outline: Color32::from_white_alpha(30),
+            surface: glass::sheet(20, strength),
+            surface_hover: glass::sheet(32, strength),
+            surface_active: glass::sheet(44, strength),
+            outline: glass::sheet(30, strength),
             text: Color32::from_rgb(0xed, 0xed, 0xef),
             secondary: Color32::from_rgb(0xa1, 0xa1, 0xaa),
             dim: Color32::from_rgb(0x6c, 0x6c, 0x76),
@@ -103,7 +122,16 @@ impl Palette {
             shadow: Color32::from_black_alpha(170),
             tint: Color32::TRANSPARENT,
             glass: true,
+            glass_strength: strength,
         }
+    }
+
+    fn designed_glass() -> f32 {
+        1.0
+    }
+
+    fn is_designed_glass(strength: &f32) -> bool {
+        *strength == 1.0
     }
 
     /// What the page behind the content is filled with: the window, or
@@ -120,7 +148,7 @@ impl Palette {
     /// filled with: the panel colour, or a frosted sheet over glass.
     pub fn chrome_fill(&self) -> Color32 {
         if self.glass {
-            glass::CHROME
+            glass::chrome(self.glass_strength)
         } else {
             self.panel
         }
@@ -147,6 +175,7 @@ impl Palette {
             shadow: Color32::from_black_alpha(50),
             tint: Color32::TRANSPARENT,
             glass: false,
+            glass_strength: 1.0,
         }
     }
 
@@ -1159,6 +1188,11 @@ mod tests {
         assert!(glass.overlay.a() >= 240);
         assert_eq!(glass.page_fill(), Color32::TRANSPARENT);
         assert_eq!(glass.chrome_fill(), glass::CHROME);
+        // Stronger glass shows more of every sheet, never fully solid.
+        let strong = Palette::glass_at(2.0);
+        assert!(strong.surface.a() > glass.surface.a() && strong.surface_active.a() < 128);
+        assert!(strong.chrome_fill().a() > glass.chrome_fill().a());
+        assert_eq!(Palette::glass_at(9.0), strong);
         // Solid palettes keep their fills, and a palette file or an older
         // cache never turns glass on.
         assert_eq!(Palette::dark().page_fill(), Palette::dark().window);

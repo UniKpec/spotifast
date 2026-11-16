@@ -5691,7 +5691,7 @@ impl App {
         let dark = ctx.theme() == egui::Theme::Dark;
         let palette = self.custom_palette(dark).unwrap_or_else(|| {
             if self.settings.theme == ThemeChoice::Glass {
-                Palette::glass()
+                Palette::glass_at(theme::glass::strength(self.settings.glass_strength))
             } else if dark {
                 Palette::dark()
             } else {
@@ -5699,9 +5699,17 @@ impl App {
             }
         });
         if self.applied_dark != Some(dark) || self.palette != palette {
+            // Dragging the glass strength changes the colours a step at a
+            // time, which a reveal for every step would only blur.
+            let strength_only = self.applied_dark == Some(dark)
+                && Palette {
+                    glass_strength: palette.glass_strength,
+                    ..self.palette
+                } == palette;
             // The first colours need no reveal, and the mini player's window
             // is drawn by its skin.
             if self.reveal_theme_changes
+                && !strength_only
                 && !self.motion.reduced()
                 && self.applied_dark.is_some()
                 && !self.settings.winamp_window
@@ -25999,6 +26007,14 @@ mod tests {
         }
         // Glass is dark to egui, and a palette file chosen after it is solid.
         app.apply(Action::SetTheme(ThemeChoice::Glass), &ctx);
+        assert_eq!(app.palette, Palette::glass());
+        // Its strength comes from Settings, and the next frame shows it.
+        app.settings.glass_strength = 150;
+        app.apply(Action::SettingsChanged, &ctx);
+        app.apply_theme(&ctx);
+        assert_eq!(app.palette, Palette::glass_at(1.5));
+        app.settings.glass_strength = 100;
+        app.apply_theme(&ctx);
         assert_eq!(app.palette, Palette::glass());
         assert_eq!(ctx.theme(), egui::Theme::Dark);
     }

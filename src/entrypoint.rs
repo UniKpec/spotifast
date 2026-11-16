@@ -57,7 +57,8 @@ struct Cli {
     /// `library-list-narrow`, `library-list-wide`, `library-grid`, `library-grid-narrow`,
     /// `library-grid-wide`, `waiting-for-browser`, `sign-in-returning`, `sign-in-malformed`,
     /// `sign-in-shared-retired`, `sign-in-unknown-client`, `sign-in-not-allowed`,
-    /// `shared-grant`, or `own-app`. `wmp-skin=PATH` wears a Windows Media
+    /// `shared-grant`, or `own-app`. `settings-theme` filters Settings to Appearance. `glass-strength=PERCENT`
+    /// sets Glass's strength. `wmp-skin=PATH` wears a Windows Media
     /// Player skin, and `wmp-run=SCRIPT` runs script in it once it starts
     /// (`|` for a comma), to open a drawer or view for a capture.
     #[cfg(feature = "demo")]

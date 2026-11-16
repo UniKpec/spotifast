@@ -385,6 +385,7 @@ main fields are:
 | `custom_theme_cache` | absent | Last accepted custom palette; preserves appearance if its file is missing or invalid |
 | `system_theme_cache` | absent | Last accepted Omarchy palette for Follow system; retained across restarts |
 | `theme_pair` | absent | The themes Follow system uses in light and dark mode: `{"light": {"filename": "Catppuccin Latte.json", "palette": {...}}, "dark": {...}}`. Each `palette` is the last accepted copy of that file's colours. A missing side, or the whole field, is Spotifast's own Light or Dark; it is written only once you choose one |
+| `glass_strength` | `100` | How strong the Glass theme is, in percent (25 to 200); the light behind it follows fully, the panels and rows by half |
 | `accent_from_art` | `true` | Tint pages with album art, and colour the player bar visualizer with the cover's colours |
 | `player_bar_vis` | `off` | Since 0.11.0: what moves behind the player bar while a song plays on this computer: `off`, `spectrum` or `waveform` |
 | `player_bar_vis_click` | `true` | Allow clicks on empty player bar space to cycle visualizer modes |
@@ -592,6 +593,8 @@ brightest pool takes the playing cover's colour and eases to the next
 cover's as songs change. Menus and dialogs stay nearly solid so their text
 stays readable. Glass is built in rather than a palette file: a palette
 file only sets colours, and Glass also changes how the window is painted.
+While Glass is chosen, **Glass strength** below the theme sets how much
+light shows through, from 25% to 200%. 100% is as designed.
 
 While **Follow system** is selected, two more pickers appear below the Theme
 row: **Light mode theme** and **Dark mode theme**. Each starts with

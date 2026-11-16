@@ -10,6 +10,10 @@
 //! The brightest pool takes the playing cover's colour when colours come
 //! from album art, and eases to the next cover's as songs change. The
 //! backdrop is still otherwise: it never asks for a frame of its own.
+//!
+//! How strong the glass is comes from Settings as a percentage: the pools
+//! follow it fully, while the sheets follow it by half, so rows and
+//! buttons stay visible at the weakest setting.
 
 use egui::{Color32, Mesh, Rect, Stroke, pos2, vec2};
 
@@ -26,6 +30,33 @@ const VIOLET: Color32 = Color32::from_rgb(0x6e, 0x56, 0xcf);
 const BLUE: Color32 = Color32::from_rgb(0x2f, 0x6b, 0xff);
 /// The base's top, a shade above the window it fades into.
 const BASE_TOP: Color32 = Color32::from_rgb(0x10, 0x10, 0x15);
+
+/// The glass strength Settings starts at, and the range it offers, in
+/// percent of the theme as designed.
+pub const DEFAULT_PERCENT: u8 = 100;
+pub const MIN_PERCENT: u8 = 25;
+pub const MAX_PERCENT: u8 = 200;
+
+/// A strength from Settings' percentage, kept inside the range offered.
+pub fn strength(percent: u8) -> f32 {
+    f32::from(percent.clamp(MIN_PERCENT, MAX_PERCENT)) / 100.0
+}
+
+/// How much a sheet's opacity scales at `strength`: by half as much as
+/// the light, so a sheet never vanishes nor turns opaque.
+pub fn sheet_scale(strength: f32) -> f32 {
+    0.5 + 0.5 * strength
+}
+
+/// A translucent white sheet of `alpha` at `strength`.
+pub fn sheet(alpha: u8, strength: f32) -> Color32 {
+    Color32::from_white_alpha(alpha).gamma_multiply(sheet_scale(strength))
+}
+
+/// The chrome sheet at `strength`.
+pub fn chrome(strength: f32) -> Color32 {
+    CHROME.gamma_multiply(sheet_scale(strength))
+}
 
 /// How long the lead pool takes to move to the next cover's colour.
 const GLOW_FADE_SECONDS: f32 = 0.9;
@@ -44,8 +75,9 @@ struct Pool {
     strength: f32,
 }
 
-/// The pools behind the window, the lead one first, coloured by `lead`.
-fn pools(lead: Color32) -> [Pool; 3] {
+/// The pools behind the window, the lead one first, coloured by `lead`,
+/// brightened or dimmed by `strength`.
+fn pools(lead: Color32, strength: f32) -> [Pool; 3] {
     [
         Pool {
             center: [0.70, -0.10],
@@ -66,6 +98,10 @@ fn pools(lead: Color32) -> [Pool; 3] {
             strength: 0.24,
         },
     ]
+    .map(|pool| Pool {
+        strength: (pool.strength * strength).min(1.0),
+        ..pool
+    })
 }
 
 /// A cover's colour made bright enough to glow: the album-art tint is
@@ -165,7 +201,7 @@ pub fn backdrop(ui: &egui::Ui, palette: &Palette, art: Option<Color32>) {
     let rect = ui.max_rect();
     let painter = ui.painter();
     painter.add(base_mesh(rect, palette.window));
-    for pool in pools(eased_lead(ui.ctx(), art)) {
+    for pool in pools(eased_lead(ui.ctx(), art), palette.glass_strength) {
         painter.add(pool_mesh(rect, pool));
     }
 }
@@ -187,8 +223,9 @@ pub fn edge(ui: &egui::Ui, palette: &Palette, rect: Rect, side: Side) {
         Side::Left => rect.left() + 0.5,
         Side::Right => rect.right() - 0.5,
     };
+    let color = EDGE.gamma_multiply(sheet_scale(palette.glass_strength));
     ui.painter()
-        .vline(x, rect.y_range(), Stroke::new(1.0, EDGE));
+        .vline(x, rect.y_range(), Stroke::new(1.0, color));
 }
 
 /// The header's wash over glass: the cover's colour as light on the
@@ -199,27 +236,29 @@ pub fn header_wash(art: Color32, overview: bool) -> (Color32, Color32) {
     (art.gamma_multiply(strength), Color32::TRANSPARENT)
 }
 
-/// The player bar's sheet with the playing cover's colour laid over it.
-pub fn tinted_chrome(tint: Option<Color32>) -> Color32 {
+/// The player bar's sheet at `strength` with the playing cover's colour
+/// laid over it.
+pub fn tinted_chrome(strength: f32, tint: Option<Color32>) -> Color32 {
+    let chrome = chrome(strength);
     match tint {
         // Premultiplied colours add as one sheet laid over the other.
         Some(tint) => {
             let light = tint.gamma_multiply(0.18);
             Color32::from_rgba_premultiplied(
-                CHROME.r().saturating_add(light.r()),
-                CHROME.g().saturating_add(light.g()),
-                CHROME.b().saturating_add(light.b()),
-                CHROME.a().saturating_add(light.a()),
+                chrome.r().saturating_add(light.r()),
+                chrome.g().saturating_add(light.g()),
+                chrome.b().saturating_add(light.b()),
+                chrome.a().saturating_add(light.a()),
             )
         }
-        None => CHROME,
+        None => chrome,
     }
 }
 
 /// The point at the centre of the window's lead pool, for tests.
 #[cfg(test)]
 fn lead_center(rect: Rect) -> egui::Pos2 {
-    let pool = pools(CORAL)[0];
+    let pool = pools(CORAL, 1.0)[0];
     pos2(
         rect.left() + rect.width() * pool.center[0],
         rect.top() + rect.height() * pool.center[1],
@@ -247,7 +286,7 @@ mod tests {
     #[test]
     fn a_pool_ends_transparent_and_is_brightest_at_its_centre() {
         let rect = Rect::from_min_size(Pos2::ZERO, vec2(1200.0, 800.0));
-        let mesh = pool_mesh(rect, pools(CORAL)[0]);
+        let mesh = pool_mesh(rect, pools(CORAL, 1.0)[0]);
         assert_eq!(mesh.vertices.len(), 1 + RINGS * SEGMENTS);
         assert_eq!(mesh.indices.len(), 3 * SEGMENTS * (1 + 2 * (RINGS - 1)));
         assert!(mesh.is_valid());
@@ -280,9 +319,29 @@ mod tests {
 
     #[test]
     fn a_playing_cover_lights_the_bar_without_making_it_solid() {
-        assert_eq!(tinted_chrome(None), CHROME);
-        let tinted = tinted_chrome(Some(Color32::from_rgb(0x40, 0x80, 0xff)));
+        assert_eq!(tinted_chrome(1.0, None), CHROME);
+        let tinted = tinted_chrome(1.0, Some(Color32::from_rgb(0x40, 0x80, 0xff)));
         assert!(tinted.a() > CHROME.a() && tinted.a() < 128);
         assert!(tinted.b() > tinted.r());
+    }
+
+    #[test]
+    fn the_strength_brightens_the_light_and_the_sheets_by_half() {
+        // The percentage stays inside what Settings offers.
+        assert_eq!(strength(DEFAULT_PERCENT), 1.0);
+        assert_eq!(strength(0), strength(MIN_PERCENT));
+        assert_eq!(strength(255), strength(MAX_PERCENT));
+        // At 100% everything is as designed.
+        assert_eq!(chrome(1.0), CHROME);
+        assert_eq!(sheet(20, 1.0), Color32::from_white_alpha(20));
+        assert_eq!(pools(CORAL, 1.0)[0].strength, 0.44);
+        // Stronger glass lifts the light fully and the sheets by half.
+        let (weak, strong) = (strength(MIN_PERCENT), strength(MAX_PERCENT));
+        for (low, high) in pools(CORAL, weak).iter().zip(pools(CORAL, strong)) {
+            assert!(low.strength < high.strength && high.strength <= 1.0);
+        }
+        assert!(chrome(weak).a() < CHROME.a() && CHROME.a() < chrome(strong).a());
+        assert!(sheet(20, weak).a() >= 10);
+        assert!(sheet(44, strong).a() < 128);
     }
 }

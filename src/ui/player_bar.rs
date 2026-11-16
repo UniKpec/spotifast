@@ -48,7 +48,7 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
     let fill = if palette.glass {
         ease(
             ui.ctx(),
-            crate::theme::glass::tinted_chrome(app.now_playing_tint()),
+            crate::theme::glass::tinted_chrome(palette.glass_strength, app.now_playing_tint()),
         )
     } else {
         eased_fill(ui.ctx(), palette.panel, app.now_playing_tint())

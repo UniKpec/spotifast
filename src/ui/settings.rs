@@ -1377,6 +1377,14 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
         ),
         pair_row(fastframe_theme::Base::Light),
         pair_row(fastframe_theme::Base::Dark),
+        RowText::new(
+            gettext(locale, "Glass strength"),
+            gettext(
+                locale,
+                "How much light shows through the glass. 100% is as designed.",
+            ),
+        )
+        .when(app.settings.custom_theme.is_none() && app.settings.theme == ThemeChoice::Glass),
     ];
     for index in [8, 9, 10] {
         appearance_rows[index].available &= visualizers;
@@ -1480,6 +1488,27 @@ pub fn show(app: &mut App, ui: &mut egui::Ui) {
                             buttons(ui);
                         }
                     });
+                },
+            );
+            filtered_row(
+                ui,
+                &palette,
+                &needle,
+                &appearance,
+                &appearance_rows[13],
+                |ui| {
+                    if setting_slider(
+                        ui,
+                        &palette,
+                        &mut app.settings.glass_strength,
+                        theme::glass::MIN_PERCENT..=theme::glass::MAX_PERCENT,
+                        |slider| slider.step_by(5.0),
+                        |value| value.suffix("%"),
+                    )
+                    .changed()
+                    {
+                        changed = true;
+                    }
                 },
             );
             for (row, base) in [
